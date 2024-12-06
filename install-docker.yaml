@@ -6,6 +6,7 @@
     http_container_count: 4
     http_container_name: webserver
     http_container_image: httpd
+
   tasks:
     - name: Install aptitude
       apt:
@@ -25,14 +26,26 @@
         state: latest
         update_cache: true
 
-    - name: Add Docker GPG apt Key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
+    - name: Create directory for APT keyrings
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Ensure curl is installed
+      apt:
+        name: curl
         state: present
+
+    - name: Download Docker GPG key using curl
+      command: >
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+      args:
+        creates: /etc/apt/keyrings/docker.asc
 
     - name: Add Docker Repository
       apt_repository:
-        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu focal stable"
         state: present
 
     - name: Update apt and install docker-ce
@@ -89,4 +102,27 @@
           - /home/ubuntu/webcontainer/:/usr/local/apache2/htdocs/
         ports:
           - "808{{ item }}:80"
-       with_sequence: count={{ http_container_count }}
+      with_sequence: count="{{ http_container_count }}"
+
+    - name: Create haproxy config directory
+      file:
+        path: /home/ubuntu/loadbalancer
+        state: directory
+
+    - name: Create haproxy.cfg
+      template:
+        src: haproxy.cfg.j2
+        dest: /home/ubuntu/loadbalancer/haproxy.cfg
+        owner: ubuntu
+        group: docker
+        mode: 0774
+
+    - name: Create Haproxy container
+      community.docker.docker_container:
+        name: loadbalancer
+        image: 'haproxy'
+        state: started
+        volumes:
+          - /home/ubuntu/loadbalancer/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+        network_mode: host
+
