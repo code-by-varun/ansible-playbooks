@@ -1,0 +1,64 @@
+---
+- name: Install required system packages, Docker, and Python virtual environment
+  hosts: dockerhost
+  become: true
+  tasks:
+    - name: Install aptitude
+      apt:
+        name: aptitude
+        state: latest
+        update_cache: true
+
+    - name: Install required system packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - python3-setuptools
+        state: latest
+        update_cache: true
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: true
+
+    - name: Install python3-venv package
+      apt:
+        name: python3-venv
+        state: present
+        update_cache: yes
+
+    - name: Create a virtual environment named 'myenv'
+      command:
+        cmd: python3 -m venv myenv
+        creates: "{{ ansible_env.PWD }}/myenv"
+
+    - name: Display virtual environment activation command
+      debug:
+        msg: "Run 'source myenv/bin/activate' to activate the virtual environment"
+
+    - name: Install Docker Python module in the virtual environment
+      pip:
+        name: docker
+        executable: "{{ ansible_env.PWD }}/myenv/bin/pip"
+
+    - name: Add Ubuntu user to Docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
