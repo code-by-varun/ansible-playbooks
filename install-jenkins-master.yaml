@@ -20,7 +20,7 @@
     - name: Install some packages
       apt:
         pkg:
-          - openjdk-11-jdk
+          - openjdk-17-jdk
           - wget
           - net-tools
           - cowsay
